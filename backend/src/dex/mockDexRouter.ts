@@ -21,10 +21,20 @@ export class MockDexRouter {
     tokenOut: string,
     amount: number
   ): Promise<DexQuote> {
+    console.log(
+      `[ROUTER] Fetching Raydium quote | tokenIn: ${tokenIn}, tokenOut: ${tokenOut}, amount: ${amount}`
+    );
+
     await sleep(200);
 
     const price = this.basePrice * (0.98 + this.randomFn() * 0.04);
     const fee = 0.003;
+
+    console.log(
+      `[ROUTER] Raydium Quote | price: ${price.toFixed(
+        6
+      )} | fee: ${fee} | amount: ${amount}`
+    );
 
     return {
       dex: 'raydium',
@@ -38,10 +48,20 @@ export class MockDexRouter {
     tokenOut: string,
     amount: number
   ): Promise<DexQuote> {
+    console.log(
+      `[ROUTER] Fetching Meteora quote | tokenIn: ${tokenIn}, tokenOut: ${tokenOut}, amount: ${amount}`
+    );
+
     await sleep(200);
 
     const price = this.basePrice * (0.97 + this.randomFn() * 0.05);
     const fee = 0.002;
+
+    console.log(
+      `[ROUTER] Meteora Quote | price: ${price.toFixed(
+        6
+      )} | fee: ${fee} | amount: ${amount}`
+    );
 
     return {
       dex: 'meteora',
@@ -55,6 +75,10 @@ export class MockDexRouter {
     tokenOut: string,
     amount: number
   ): Promise<{ best: DexQuote; all: DexQuote[] }> {
+    console.log(
+      `[ROUTER] Getting best quote for order | tokenIn: ${tokenIn}, tokenOut: ${tokenOut}, amount: ${amount}`
+    );
+
     const [raydium, meteora] = await Promise.all([
       this.getRaydiumQuote(tokenIn, tokenOut, amount),
       this.getMeteoraQuote(tokenIn, tokenOut, amount),
@@ -63,6 +87,12 @@ export class MockDexRouter {
     const all = [raydium, meteora];
     const best = raydium.price > meteora.price ? raydium : meteora;
 
+    console.log(
+      `[ROUTER] Best DEX selected | dex: ${best.dex} | price: ${best.price.toFixed(
+        6
+      )}`
+    );
+
     return { best, all };
   }
 
@@ -70,16 +100,26 @@ export class MockDexRouter {
     dex: 'raydium' | 'meteora',
     order: Order
   ): Promise<{ txHash: string; executedPrice: number }> {
-    // Simulate swap execution time
+    console.log(
+      `[SWAP] Executing swap on ${dex} | orderId: ${order.id} | amountIn: ${order.amountIn} ${order.tokenIn}`
+    );
+
+    // Simulate swap delay
     await sleep(2000 + this.randomFn() * 1000);
 
-    // Generate random transaction hash
+    // Generate mock tx hash
     const txHash = '0x' + Array.from({ length: 64 }, () =>
       Math.floor(this.randomFn() * 16).toString(16)
     ).join('');
 
-    // Calculate executed price with slight variance
+    // Slight variance in final executed price
     const executedPrice = this.basePrice * (0.99 + this.randomFn() * 0.02);
+
+    console.log(
+      `[SWAP] Swap executed | orderId: ${order.id} | dex: ${dex} | txHash: ${txHash} | executedPrice: ${executedPrice.toFixed(
+        6
+      )}`
+    );
 
     return {
       txHash,

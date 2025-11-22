@@ -1,0 +1,156 @@
+{
+  "info": {
+    "name": "Order Execution API",
+    "description": "API collection for executing market orders with WebSocket status updates",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4000",
+      "type": "string"
+    },
+    {
+      "key": "baseUrlNoHttp",
+      "value": "localhost:4000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Check if the server is running"
+      },
+      "response": []
+    },
+    {
+      "name": "Execute Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"side\": \"buy\",\n  \"tokenIn\": \"SOL\",\n  \"tokenOut\": \"USDC\",\n  \"amountIn\": 1,\n  \"maxSlippageBps\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/execute",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "execute"]
+        },
+        "description": "Execute a market order.\n\n**Request Body:**\n- `side` (string, required): \"buy\" or \"sell\"\n- `tokenIn` (string, required): Input token symbol\n- `tokenOut` (string, required): Output token symbol\n- `amountIn` (number, required): Amount to swap (must be positive)\n- `maxSlippageBps` (number, required): Maximum slippage in basis points (0-10000)\n\n**Response:**\n- Status: 202 Accepted\n- Body: `{ \"orderId\": \"<uuid>\" }`\n\n**WebSocket Status Updates:**\nConnect to WebSocket for real-time order status updates:\n```\nws://{{baseUrlNoHttp}}/api/orders/execute?orderId=<orderId>\n```\n\nStatus progression:\n1. `pending` - Order created and queued\n2. `routing` - Finding best DEX route (Raydium vs Meteora)\n3. `building` - Building transaction\n4. `submitted` - Transaction submitted to blockchain\n5. `confirmed` - Transaction confirmed (success)\n6. `failed` - Order failed (with error details)\n\n**Example WebSocket Message:**\n```json\n{\n  \"orderId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"confirmed\",\n  \"data\": {\n    \"txHash\": \"0xabc123...\",\n    \"executedPrice\": 1.002,\n    \"chosenDex\": \"raydium\"\n  }\n}\n```"
+      },
+      "response": [
+        {
+          "name": "Success - Order Accepted",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"side\": \"buy\",\n  \"tokenIn\": \"SOL\",\n  \"tokenOut\": \"USDC\",\n  \"amountIn\": 1,\n  \"maxSlippageBps\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/execute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "execute"]
+            }
+          },
+          "status": "Accepted",
+          "code": 202,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"orderId\": \"550e8400-e29b-41d4-a716-446655440000\"\n}"
+        },
+        {
+          "name": "Error - Validation Failed",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"side\": \"invalid\",\n  \"tokenIn\": \"SOL\",\n  \"tokenOut\": \"USDC\",\n  \"amountIn\": -1,\n  \"maxSlippageBps\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/execute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "execute"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"error\": \"Validation failed\",\n  \"details\": [\n    {\n      \"code\": \"invalid_enum_value\",\n      \"path\": [\"side\"],\n      \"message\": \"Invalid enum value\"\n    }\n  ]\n}"
+        }
+      ]
+    },
+    {
+      "name": "Execute Sell Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"side\": \"sell\",\n  \"tokenIn\": \"USDC\",\n  \"tokenOut\": \"SOL\",\n  \"amountIn\": 100,\n  \"maxSlippageBps\": 50\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/execute",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "execute"]
+        },
+        "description": "Example of a sell order with different parameters"
+      },
+      "response": []
+    }
+  ]
+}

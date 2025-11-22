@@ -12,28 +12,29 @@ function sleep(ms: number): Promise<void> {
 
 export function startOrderWorker() {
   const worker = new Worker(
-    'orders',
+    "orders",
     async (job: Job) => {
       const { orderId } = job.data;
 
+      console.log(`[WORKER] Picked job for order: ${orderId}`);
+
       try {
-        // Load order from database
+        // Load order from DB
         const order = await getOrderById(orderId);
         if (!order) {
+          console.error(`[WORKER] ERROR: Order ${orderId} not found`);
           throw new Error(`Order ${orderId} not found`);
         }
 
-        // Emit initial pending status
-        await emitStatusUpdate({
-          orderId,
-          status: 'pending',
-        });
+        console.log(`[WORKER] Loaded order from DB: ${orderId}`);
 
-        // Routing: Get best quote from DEXes
-        await emitStatusUpdate({
-          orderId,
-          status: 'routing',
-        });
+        // Emit PENDING
+        console.log(`[WS] emit: pending for ${orderId}`);
+        await emitStatusUpdate({ orderId, status: "pending" });
+
+        // ROUTING
+        console.log(`[WS] emit: routing for ${orderId}`);
+        await emitStatusUpdate({ orderId, status: "routing" });
 
         const { best, all } = await router.getBestQuote(
           order.tokenIn,
@@ -41,13 +42,14 @@ export function startOrderWorker() {
           order.amountIn
         );
 
-        await updateOrderStatus(orderId, 'routing', {
-          chosenDex: best.dex,
-        });
+        console.log(`[ROUTER] Quotes for order ${orderId}: ${JSON.stringify(all)}`);
+        console.log(`[ROUTER] Best DEX: ${best.dex} | price: ${best.price}`);
+
+        await updateOrderStatus(orderId, "routing", { chosenDex: best.dex });
 
         await emitStatusUpdate({
           orderId,
-          status: 'routing',
+          status: "routing",
           data: {
             chosenDex: best.dex,
             price: best.price,
@@ -56,43 +58,41 @@ export function startOrderWorker() {
           },
         });
 
-        // Building: Prepare transaction
-        await emitStatusUpdate({
-          orderId,
-          status: 'building',
-        });
+        // BUILDING
+        console.log(`[WS] emit: building for ${orderId}`);
+        await emitStatusUpdate({ orderId, status: "building" });
 
         await sleep(300);
 
-        await updateOrderStatus(orderId, 'building');
+        await updateOrderStatus(orderId, "building");
 
-        await emitStatusUpdate({
-          orderId,
-          status: 'building',
-        });
+        console.log(`[WORKER] Order ${orderId} transaction building done`);
 
-        // Submitted: Execute swap
-        await emitStatusUpdate({
-          orderId,
-          status: 'submitted',
-        });
+        await emitStatusUpdate({ orderId, status: "building" });
 
-        await updateOrderStatus(orderId, 'submitted');
+        // SUBMITTED
+        console.log(`[WS] emit: submitted for ${orderId}`);
+        await emitStatusUpdate({ orderId, status: "submitted" });
+        await updateOrderStatus(orderId, "submitted");
 
-        const { txHash, executedPrice } = await router.executeSwap(
-          best.dex,
-          order
+        console.log(`[SWAP] Executing swap on ${best.dex} for ${orderId}`);
+        const { txHash, executedPrice } = await router.executeSwap(best.dex, order);
+
+        console.log(
+          `[SWAP] Swap executed | order: ${orderId} | dex: ${best.dex} | txHash: ${txHash} | price: ${executedPrice}`
         );
 
-        // Confirmed: Transaction confirmed
-        await updateOrderStatus(orderId, 'confirmed', {
+        // CONFIRMED
+        await updateOrderStatus(orderId, "confirmed", {
           txHash,
           executedPrice,
         });
 
+        console.log(`[WS] emit: confirmed for ${orderId}`);
+
         await emitStatusUpdate({
           orderId,
-          status: 'confirmed',
+          status: "confirmed",
           data: {
             txHash,
             executedPrice,
@@ -100,25 +100,28 @@ export function startOrderWorker() {
           },
         });
 
+        console.log(`[WORKER] Order ${orderId} completed successfully`);
         return { success: true, txHash, executedPrice };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
 
-        // Update database with failure
-        await updateOrderStatus(orderId, 'failed', {
+        console.error(
+          `[WORKER] Order FAILED: ${orderId} | reason: ${errorMessage}`
+        );
+
+        await updateOrderStatus(orderId, "failed", {
           failureReason: errorMessage,
         });
 
+        console.log(`[WS] emit: failed for ${orderId}`);
         await emitStatusUpdate({
           orderId,
-          status: 'failed',
-          data: {
-            error: errorMessage,
-          },
+          status: "failed",
+          data: { error: errorMessage },
         });
 
-        // Re-throw to allow BullMQ to retry
-        throw error;
+        throw error; // let BullMQ retry
       }
     },
     {
@@ -126,6 +129,8 @@ export function startOrderWorker() {
       concurrency: 10,
     }
   );
+
+  console.log("[WORKER] OrderWorker started with concurrency 10");
 
   return worker;
 }

@@ -38,7 +38,7 @@ export function createNewMarketOrder(params: {
 }): Order {
   const now = new Date();
 
-  return {
+  const order: Order = {
     id: randomUUID(),
     type: 'market',
     status: 'pending',
@@ -50,4 +50,10 @@ export function createNewMarketOrder(params: {
     createdAt: now,
     updatedAt: now,
   };
+
+  console.log(
+    `[ORDER] Created new market order: ${order.id} | side: ${order.side} | ${order.amountIn} ${order.tokenIn} → ${order.tokenOut}`
+  );
+
+  return order;
 }
